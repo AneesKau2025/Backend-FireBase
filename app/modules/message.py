@@ -162,21 +162,21 @@ def get_notifications(parentUserName: str):
     with get_connection() as conn:
         query = sa.text("""
             SELECT 
-                n.messageID,
+                n.notificationID,
                 n.content,
+                n.originalContent,
                 n.timeStamp,
                 n.senderChildUserName AS sender,
                 n.receiverChildUserName AS receiver,
                 c.firstName AS receiverFirstName,
                 c.lastName AS receiverLastName,
-                n.riskID
+                n.riskType
             FROM 
                 Notification n
             JOIN 
                 Child c ON n.receiverChildUserName = c.childUserName
             WHERE 
                 c.parentUserName = :parentUserName
-                AND n.riskID > 0
             ORDER BY n.timeStamp DESC
         """)
         results = conn.execute(query, {"parentUserName": parentUserName}).mappings().fetchall()
