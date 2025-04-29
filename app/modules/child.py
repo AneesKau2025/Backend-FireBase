@@ -209,9 +209,6 @@ def create_friend_request(sender: str, receiver: str) -> FriendResponse:
 
 # ---------------------- return the requests avialable ----------------------
 def get_friend_requests(child_username: str) -> List[dict]:
-    """
-    Get all friend requests where the current user is either the sender or the receiver.
-    """
     with get_connection() as conn:
         results = conn.execute(
             sa.text("""
@@ -230,17 +227,19 @@ def get_friend_requests(child_username: str) -> List[dict]:
                 FROM Request r
                 JOIN Child sender ON r.requestChildUserName = sender.childUserName
                 JOIN Child receiver ON r.ReceiverChildUserName = receiver.childUserName
-                WHERE r.requestChildUserName = :child_username OR r.ReceiverChildUserName = :child_username
+                WHERE r.ReceiverChildUserName = :child_username
+                AND r.requestStatus = 'Pending'
                 ORDER BY r.requestTimeStamp DESC
             """),
             {"child_username": child_username}
         ).mappings().all()
-    
+
     return [dict(row) for row in results]
+
 
 # ---------------------- accept friendship ----------------------
 def accept_friend_request(request_id: int, receiver: str) -> FriendResponse:
-    """Accept a friend request"""
+    """Accept a friend request and remove the request record"""
     with get_connection() as conn:
         request = conn.execute(
             sa.text("""
@@ -259,42 +258,38 @@ def accept_friend_request(request_id: int, receiver: str) -> FriendResponse:
                 detail="Friend request not found or already processed"
             )
 
-        request_child_username, receiver_child_username = request  # unpacking the tuple
+        sender, receiver_child_username = request
 
-        conn.execute(
-            sa.text("""
-                UPDATE Request
-                SET requestStatus = 'Accepted', acceptedTimeStamp = NOW()
-                WHERE requestID = :request_id
-            """),
-            {"request_id": request_id}
-        )
-
-        # insert into Friendship table
+        # Insert into Friendship
         conn.execute(
             sa.text("""
                 INSERT INTO Friendship (childUserName1, childUserName2, status)
                 VALUES (:child1, :child2, 'Active')
             """),
             {
-                "child1": request_child_username,
+                "child1": sender,
                 "child2": receiver_child_username
             }
         )
+
+        # Delete the request from Request table
+        conn.execute(
+            sa.text("DELETE FROM Request WHERE requestID = :request_id"),
+            {"request_id": request_id}
+        )
+
         conn.commit()
 
-    return FriendResponse(
-        message="Friend request accepted!",
-        data=None
-    )
+    return FriendResponse(message="Friend request accepted and removed.", data=None)
+
 
 # ---------------------- reject friendship request ----------------------
 def reject_friend_request(request_id: int, receiver: str) -> FriendResponse:
-    """Reject a friend request"""
+    """Reject a friend request and delete it from the database"""
     with get_connection() as conn:
         request = conn.execute(
             sa.text("""
-                SELECT requestChildUserName, ReceiverChildUserName 
+                SELECT 1 
                 FROM Request 
                 WHERE requestID = :request_id 
                 AND ReceiverChildUserName = :receiver
@@ -309,24 +304,14 @@ def reject_friend_request(request_id: int, receiver: str) -> FriendResponse:
                 detail="Friend request not found or already processed"
             )
 
-        request_child_username, receiver_child_username = request  # Unpacking the tuple
-
-        # Update request status to 'Rejected'
+        # Delete the request
         conn.execute(
-            sa.text("""
-                UPDATE Request
-                SET requestStatus = 'Rejected', rejectedTimeStamp = NOW()
-                WHERE requestID = :request_id
-            """),
+            sa.text("DELETE FROM Request WHERE requestID = :request_id"),
             {"request_id": request_id}
         )
-
         conn.commit()
 
-    return FriendResponse(
-        message="Friend request rejected!",
-        data=None
-    )
+    return FriendResponse(message="Friend request rejected and removed.", data=None)
 
 # ---------------------- get the friends of the child ----------------------
 def get_friends(childUserName: str) -> FriendResponse:
