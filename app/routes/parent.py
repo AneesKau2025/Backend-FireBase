@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status , Request
+from fastapi import APIRouter, Depends, HTTPException, status 
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from app.modules import parent as parent_module
@@ -162,30 +162,7 @@ def get_notifications(current_user: dict = Depends(parent_module.getCurrentUser)
     notifications = message_module.get_notifications(parentUserName)
     return notifications
     
-#-------------------- block child's friend ---------------------
-@router.put("/parent/block-friend")
-def parent_block_child_friend(request: Request, payload: dict, current_parent: dict = Depends(get_current_parent_user)):
-    """
-    Parent blocks their child's friend.
-    """
-    childUserName = payload.get("childUserName")
-    friendUserName = payload.get("friendUserName")
-    
-    if not childUserName or not friendUserName:
-        raise HTTPException(status_code=400, detail="Missing childUserName or friendUserName")
 
-    # Verify that the child belongs to the current parent
-    with get_connection() as conn:
-        result = conn.execute(
-            sa.text("SELECT 1 FROM Child WHERE childUserName = :childUserName AND parentUserName = :parentUserName"),
-            {"childUserName": childUserName, "parentUserName": current_parent['parentUserName']}
-        ).fetchone()
-
-        if not result:
-            raise HTTPException(status_code=403, detail="Child does not belong to the parent")
-
-    # Call your existing block_friend function
-    return child_module.block_friend(childUserName, friendUserName)
 #-------------------- logging out --------------------------
 
     
