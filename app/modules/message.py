@@ -157,7 +157,6 @@ def create_notification(firebase_message_id: str, sender_child_username: str, re
         
         print(f"🔔 Notification created for {parent_username} regarding message {firebase_message_id} with risk: {risk_type}")
         return {"status": "Notification created successfully"}
-
 def get_notifications(parentUserName: str):
     with get_connection() as conn:
         query = sa.text("""
@@ -170,12 +169,13 @@ def get_notifications(parentUserName: str):
                 n.receiverChildUserName AS receiver,
                 c.firstName AS receiverFirstName,
                 c.lastName AS receiverLastName,
-                COALESCE(n.riskType, CASE 
+                CASE
+                    WHEN n.riskType IS NOT NULL THEN n.riskType
                     WHEN n.riskID = 1 THEN 'Inappropriate Language'
                     WHEN n.riskID = 2 THEN 'Sexual Content'
                     WHEN n.riskID = 3 THEN 'Drugs'
                     ELSE NULL
-                END) AS riskType
+                END AS riskType
             FROM 
                 Notification n
             JOIN 
