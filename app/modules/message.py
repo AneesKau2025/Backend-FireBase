@@ -157,11 +157,12 @@ def create_notification(firebase_message_id: str, sender_child_username: str, re
         
         print(f"🔔 Notification created for {parent_username} regarding message {firebase_message_id} with risk: {risk_type}")
         return {"status": "Notification created successfully"}
+        
 def get_notifications(parentUserName: str):
     with get_connection() as conn:
         query = sa.text("""
             SELECT 
-                COALESCE(n.notificationID, n.messageID) AS notificationID,
+                n.messageID AS notificationID,
                 n.content,
                 n.originalContent,
                 n.timeStamp,
