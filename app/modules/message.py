@@ -162,7 +162,7 @@ def get_notifications(parentUserName: str):
     with get_connection() as conn:
         query = sa.text("""
             SELECT 
-                n.notificationID,
+                COALESCE(n.notificationID, n.messageID) AS notificationID,
                 n.content,
                 n.originalContent,
                 n.timeStamp,
@@ -170,7 +170,12 @@ def get_notifications(parentUserName: str):
                 n.receiverChildUserName AS receiver,
                 c.firstName AS receiverFirstName,
                 c.lastName AS receiverLastName,
-                n.riskType
+                COALESCE(n.riskType, CASE 
+                    WHEN n.riskID = 1 THEN 'Inappropriate Language'
+                    WHEN n.riskID = 2 THEN 'Sexual Content'
+                    WHEN n.riskID = 3 THEN 'Drugs'
+                    ELSE NULL
+                END) AS riskType
             FROM 
                 Notification n
             JOIN 
