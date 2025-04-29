@@ -162,6 +162,29 @@ def get_notifications(current_user: dict = Depends(parent_module.getCurrentUser)
     notifications = message_module.get_notifications(parentUserName)
     return notifications
     
+#---------------------- block child's friend-----------------------------
+@router.post("/parent/children/{childUserName}/block/{friendUserName}")
+def block_child_friend(
+    childUserName: str,
+    friendUserName: str,
+    current_user: dict = Depends(parent_module.getCurrentUser)
+):
+    """Allows parent to block a friend of their child"""
+    parentUserName = current_user['parentUserName']
+
+    with get_connection() as conn:
+        child = conn.execute(
+            sa.text("SELECT 1 FROM Child WHERE childUserName = :child AND parentUserName = :parent"),
+            {"child": childUserName, "parent": parentUserName}
+        ).scalar()
+
+    if not child:
+        raise HTTPException(status_code=403, detail="❌ لا يمكنك إدارة هذا الطفل")
+
+    
+    from app.modules.child import block_friend
+    return block_friend(childUserName, friendUserName)
+
 
 #-------------------- logging out --------------------------
 
