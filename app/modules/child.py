@@ -362,28 +362,41 @@ def search_users(query: str, current_child_username: str) -> FriendResponse:
 def block_friend(childUserName: str, friendUserName: str) -> FriendResponse:
     """Block a friend"""
     with get_connection() as conn:
-        if not conn.execute(
+        result = conn.execute(
             sa.text("""
-                UPDATE Friendship
-                SET status = 'Blocked'
+                SELECT * FROM Friendship
                 WHERE (
                     (childUserName1 = :childUserName AND childUserName2 = :friendUserName) OR
                     (childUserName1 = :friendUserName AND childUserName2 = :childUserName)
                 )
                 AND status = 'Active'
+                ORDER BY friendshipID DESC
+                LIMIT 1
             """),
             {"childUserName": childUserName, "friendUserName": friendUserName}
-        ).rowcount:
+        ).mappings().first()
+
+        if not result:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=404,
                 detail="Friendship not found"
             )
+
+        conn.execute(
+            sa.text("""
+                UPDATE Friendship
+                SET status = 'Blocked'
+                WHERE friendshipID = :fid
+            """),
+            {"fid": result['friendshipID']}
+        )
         conn.commit()
-    
+
     return FriendResponse(
         message="Friend blocked successfully!",
         data=None
     )
+
     
 #--------------------------- child Sessions ---------------------------------
 def start_child_session(childUserName: str):
